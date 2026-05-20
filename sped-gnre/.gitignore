@@ -1,0 +1,7 @@
+certs/
+vendor/
+.idea/
+coverage/
+local/
+nbproject
+.phpunit.result.cache
