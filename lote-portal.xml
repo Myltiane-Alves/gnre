@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TLote_GNRE versao="2.00" xmlns="http://www.gnre.pe.gov.br">
+    <guias>
+        <TDadosGNRE versao="2.00">
+            <ufFavorecida>MA</ufFavorecida>
+            <tipoGnre>0</tipoGnre>
+            <contribuinteEmitente>
+                <identificacao>
+                    <CNPJ>36769602005700</CNPJ>
+                </identificacao>
+                <razaoSocial>GTO COMERCIO ATACADISTA DE CONFECCOES E CALCADOS LTDA</razaoSocial>
+                <endereco>SN</endereco>
+                <municipio>53001</municipio>
+                <uf>DF</uf>
+                <cep>71720510</cep>
+            </contribuinteEmitente>
+            <itensGNRE>
+                <item>
+                    <receita>100102</receita>
+                    <documentoOrigem tipo="10">53260536769602005700550000000147921506192504</documentoOrigem>
+                    <referencia>
+                        <periodo>0</periodo>
+                        <mes>05</mes>
+                        <ano>2026</ano>
+                    </referencia>
+                    <dataVencimento>2026-05-29</dataVencimento>
+                    <valor tipo="11">28.80</valor>
+                    <valor tipo="21">28.80</valor>
+                    <contribuinteDestinatario>
+                        <identificacao>
+                            <CNPJ>05761069000151</CNPJ>
+                        </identificacao>
+                        <razaoSocial>SOCIEDADE MARANHENSE DE DIREITOS HUMANOS</razaoSocial>
+                        <municipio>21113</municipio>
+                    </contribuinteDestinatario>
+                </item>
+            </itensGNRE>
+            <valorGNRE>28.80</valorGNRE>
+            <dataPagamento>2026-05-22</dataPagamento>
+            <identificadorGuia>1</identificadorGuia>
+        </TDadosGNRE>
+        <TDadosGNRE versao="2.00">
+            <ufFavorecida>MA</ufFavorecida>
+            <tipoGnre>0</tipoGnre>
+            <contribuinteEmitente>
+                <identificacao>
+                    <CNPJ>36769602005700</CNPJ>
+                </identificacao>
+                <razaoSocial>GTO COMERCIO ATACADISTA DE CONFECCOES E CALCADOS LTDA</razaoSocial>
+                <endereco>SN</endereco>
+                <municipio>53001</municipio>
+                <uf>DF</uf>
+                <cep>71720510</cep>
+            </contribuinteEmitente>
+            <itensGNRE>
+                <item>
+                    <receita>100120</receita>
+                    <documentoOrigem tipo="10">53260536769602005700550000000147921506192504</documentoOrigem>
+                    <referencia>
+                        <periodo>0</periodo>
+                        <mes>05</mes>
+                        <ano>2026</ano>
+                    </referencia>
+                    <dataVencimento>2026-05-29</dataVencimento>
+                    <valor tipo="11">3.60</valor>
+                    <valor tipo="21">3.60</valor>
+                    <contribuinteDestinatario>
+                        <identificacao>
+                            <CNPJ>05761069000151</CNPJ>
+                        </identificacao>
+                        <razaoSocial>SOCIEDADE MARANHENSE DE DIREITOS HUMANOS</razaoSocial>
+                        <municipio>21113</municipio>
+                    </contribuinteDestinatario>
+                </item>
+            </itensGNRE>
+            <valorGNRE>3.60</valorGNRE>
+            <dataPagamento>2026-05-22</dataPagamento>
+            <identificadorGuia>2</identificadorGuia>
+        </TDadosGNRE>
+    </guias>
+</TLote_GNRE>
