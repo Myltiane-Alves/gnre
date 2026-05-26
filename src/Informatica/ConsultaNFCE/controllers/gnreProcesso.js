@@ -117,6 +117,30 @@ function extrairNumeroRecibo(xml = '') {
   return numero || null;
 }
 
+function extrairVersoesEnvelope(xmlEnvelope = '') {
+  const xml = String(xmlEnvelope || '');
+  const versaoCabecalho = String(extrairTagXml(xml, ['versaoDados']) || '').trim() || null;
+
+  const cdataMatch = xml.match(/<!\[CDATA\[([\s\S]*?)\]\]>/i);
+  const xmlDados = cdataMatch?.[1] ? cdataMatch[1] : xml;
+
+  const matchLote = xmlDados.match(/<\s*(?:\w+:)?TLote_GNRE\b[^>]*\bversao\s*=\s*["']([^"']+)["']/i);
+  const matchDados = xmlDados.match(/<\s*(?:\w+:)?TDadosGNRE\b[^>]*\bversao\s*=\s*["']([^"']+)["']/i);
+
+  return {
+    versaoCabecalho,
+    versaoLote: matchLote?.[1] ? String(matchLote[1]).trim() : null,
+    versaoDados: matchDados?.[1] ? String(matchDados[1]).trim() : null,
+  };
+}
+
+function normalizarNomeVariante(valor = '') {
+  return String(valor || '')
+    .trim()
+    .replace(/wdl/gi, 'wsdl')
+    .replace(/soap12_soap12/gi, 'soap12');
+}
+
 function extrairSituacaoProcessamento(xml = '') {
   const bloco = extrairTagXml(xml, ['situacaoProcess']);
   const codigo = String(extrairTagXml(bloco || '', ['codigo']) || '').replace(/\D/g, '');
@@ -317,8 +341,11 @@ class GnreProcessoController {
 
     const idVenda = String(body?.idVenda ?? query?.idVenda ?? '').trim();
     const ambiente = normalizarAmbiente(body?.ambiente ?? query?.ambiente);
+    const variante = String(body?.variante ?? query?.variante ?? '').trim();
+    const modoDiagnosticoEntrada = String(body?.modoDiagnostico ?? query?.modoDiagnostico ?? '').trim().toLowerCase();
+    const modoDiagnostico = ['1', 'true', 'sim', 'yes', 'on'].includes(modoDiagnosticoEntrada);
 
-    return { idVenda, ambiente };
+    return { idVenda, ambiente, variante, modoDiagnostico };
   }
 
   // Função para obter opções de certificado PFX
@@ -532,7 +559,7 @@ class GnreProcessoController {
 
   async consultarGnre(req, res) {
     try {
-      const { idVenda, ambiente } = this.extrairEntradaConsulta(req);
+      const { idVenda, ambiente, variante, modoDiagnostico } = this.extrairEntradaConsulta(req);
 
       if (!idVenda) {
         return res.status(400).json({ error: 'idVenda é obrigatório para gerar GNRE.' });
@@ -652,14 +679,87 @@ class GnreProcessoController {
         tipoDocDestinatario: nfeNormalizada?.dest?.CNPJ ? '1' : '2',
         documentoOrigem: String(nfeNormalizada?.chave || nfeNormalizada?.ide?.nNF || '').replace(/\D/g, '').slice(0, 60)
       };
+      const actionRecepcao = ambiente === 'producao'
+        ? 'http://www.gnre.pe.gov.br/webservice/GnreRecepcaoLote'
+        : 'http://www.testegnre.pe.gov.br/webservice/GnreRecepcaoLote';
+      const actionProcessar = ambiente === 'producao'
+        ? 'http://www.gnre.pe.gov.br/webservice/GnreLoteRecepcao/processar'
+        : 'http://www.testegnre.pe.gov.br/webservice/GnreLoteRecepcao/processar';
+      const nsServicoRecepcao = ambiente === 'producao'
+        ? 'http://www.gnre.pe.gov.br/webservice/GnreLoteRecepcao'
+        : 'http://www.testegnre.pe.gov.br/webservice/GnreLoteRecepcao';
+
       const variantesEnvio = [
+        {
+          nome: 'v2_oficial_direct_wsdl_action_recepcao',
+          opcoesEnvelope: {
+            versaoDados: '2.00',
+            usarNamespaceCabecalhoWsdl: true,
+            versaoLayout: '2.00',
+            formatoSoap: 'soap12-direct',
+            loteNamespaceV2: 'http://www.gnre.pe.gov.br',
+            contentTypeAction: actionRecepcao,
+            soapAction: 'processar'
+          }
+        },
+        {
+          nome: 'v2_direct_wsdl_action_processar',
+          opcoesEnvelope: {
+            versaoDados: '2.00',
+            usarNamespaceCabecalhoWsdl: true,
+            versaoLayout: '2.00',
+            formatoSoap: 'soap12-direct',
+            loteNamespaceV2: 'http://www.gnre.pe.gov.br',
+            contentTypeAction: actionProcessar,
+            soapAction: actionProcessar
+          }
+        },
+        {
+          nome: 'v2_direct_cdata_wsdl_action_recepcao',
+          opcoesEnvelope: {
+            versaoDados: '2.00',
+            usarNamespaceCabecalhoWsdl: true,
+            versaoLayout: '2.00',
+            formatoSoap: 'soap12-direct-cdata',
+            loteNamespaceV2: 'http://www.gnre.pe.gov.br',
+            contentTypeAction: actionRecepcao,
+            soapAction: 'processar'
+          }
+        },
+        {
+          nome: 'v2_direct_cdata_wsdl_action_processar',
+          opcoesEnvelope: {
+            versaoDados: '2.00',
+            usarNamespaceCabecalhoWsdl: true,
+            versaoLayout: '2.00',
+            formatoSoap: 'soap12-direct-cdata',
+            loteNamespaceV2: 'http://www.gnre.pe.gov.br',
+            contentTypeAction: actionProcessar,
+            soapAction: actionProcessar
+          }
+        },
+        {
+          nome: 'v2_direct_service_action_recepcao',
+          opcoesEnvelope: {
+            versaoDados: '2.00',
+            usarNamespaceCabecalhoWsdl: false,
+            versaoLayout: '2.00',
+            formatoSoap: 'soap12-direct',
+            loteNamespaceV2: 'http://www.gnre.pe.gov.br',
+            contentTypeAction: actionRecepcao,
+            soapAction: 'processar',
+            namespaceServicoRecepcao: nsServicoRecepcao
+          }
+        },
         {
           nome: 'v2_header2_serviceNs',
           opcoesEnvelope: {
             versaoDados: '2.00',
             usarNamespaceCabecalhoWsdl: false,
             versaoLayout: '2.00',
-            loteNamespaceV2: 'http://www.gnre.pe.gov.br/schema/TLote_GNRE_v2_00.xsd'
+            loteNamespaceV2: 'http://www.gnre.pe.gov.br',
+            contentTypeAction: actionRecepcao,
+            soapAction: 'processar'
           }
         },
         {
@@ -668,7 +768,9 @@ class GnreProcessoController {
             versaoDados: '2.00',
             usarNamespaceCabecalhoWsdl: true,
             versaoLayout: '2.00',
-            loteNamespaceV2: 'http://www.gnre.pe.gov.br/schema/TLote_GNRE_v2_00.xsd'
+            loteNamespaceV2: 'http://www.gnre.pe.gov.br',
+            contentTypeAction: actionRecepcao,
+            soapAction: 'processar'
           }
         },
         {
@@ -678,9 +780,68 @@ class GnreProcessoController {
             usarNamespaceCabecalhoWsdl: true,
             versaoLayout: '2.00',
             formatoSoap: 'soap12-axis-cdata',
-            loteNamespaceV2: 'http://www.gnre.pe.gov.br/schema/TLote_GNRE_v2_00.xsd'
+            loteNamespaceV2: 'http://www.gnre.pe.gov.br',
+            contentTypeAction: actionRecepcao,
+            soapAction: 'processar'
           }
-        }
+        },
+        {
+          nome: 'v2_header2_wsdlNs_soap12_axis_cdata_action_processar',
+          opcoesEnvelope: {
+            versaoDados: '2.00',
+            usarNamespaceCabecalhoWsdl: true,
+            versaoLayout: '2.00',
+            formatoSoap: 'soap12-axis-cdata',
+            loteNamespaceV2: 'http://www.gnre.pe.gov.br',
+            contentTypeAction: actionProcessar,
+            soapAction: actionProcessar
+          }
+        },
+        {
+          nome: 'v2_header2_wsdlNs_axis_cdata_action_processar',
+          opcoesEnvelope: {
+            versaoDados: '2.00',
+            usarNamespaceCabecalhoWsdl: true,
+            versaoLayout: '2.00',
+            loteNamespaceV2: 'http://www.gnre.pe.gov.br',
+            contentTypeAction: actionProcessar,
+            soapAction: `"${actionProcessar}"`
+          }
+        },
+        {
+          nome: 'v2_header1_wsdlNs',
+          opcoesEnvelope: {
+            versaoDados: '1.00',
+            usarNamespaceCabecalhoWsdl: true,
+            versaoLayout: '2.00',
+            loteNamespaceV2: 'http://www.gnre.pe.gov.br',
+            contentTypeAction: actionRecepcao,
+            soapAction: 'processar'
+          }
+        },
+        {
+          nome: 'v2_header1_wsdlNs_soap12_axis_cdata',
+          opcoesEnvelope: {
+            versaoDados: '1.00',
+            usarNamespaceCabecalhoWsdl: true,
+            versaoLayout: '2.00',
+            formatoSoap: 'soap12-axis-cdata',
+            loteNamespaceV2: 'http://www.gnre.pe.gov.br',
+            contentTypeAction: actionRecepcao,
+            soapAction: 'processar'
+          }
+        },
+        {
+          nome: 'v2_header1_wsdlNs_axis_cdata_action_processar',
+          opcoesEnvelope: {
+            versaoDados: '1.00',
+            usarNamespaceCabecalhoWsdl: true,
+            versaoLayout: '2.00',
+            loteNamespaceV2: 'http://www.gnre.pe.gov.br',
+            contentTypeAction: actionProcessar,
+            soapAction: `"${actionProcessar}"`
+          }
+        },
       ];
 
       let sefazResponse = null;
@@ -688,23 +849,77 @@ class GnreProcessoController {
       let erroSefaz = null;
       let situacaoRecepcao = null;
       let numeroRecibo = null;
+      let varianteUsada = null;
+      const tentativasDiagnostico = [];
 
-      for (let i = 0; i < variantesEnvio.length; i += 1) {
-        const variante = variantesEnvio[i];
-        const xmlEnvelope = await this.gerarEnvelopeSOAP(dadosGnre, ambiente, variante.opcoesEnvelope);
+      const buildDiagnosticoEnvio = (opcoesEnvelope = {}) => {
+        const formatoSoap = String(opcoesEnvelope?.formatoSoap || 'axis-cdata');
+        const usaSoap12 = formatoSoap.startsWith('soap12');
+        const action = String(opcoesEnvelope?.contentTypeAction || config.sefazAction[ambiente] || '');
+        const contentType = usaSoap12
+          ? `application/soap+xml;charset=utf-8;action="${action}"`
+          : 'text/xml; charset=utf-8';
 
-        console.log(`==== XML ENVIADO PARA SEFAZ (${variante.nome}) ====`);
+        const soapAction = (typeof opcoesEnvelope?.soapAction === 'string' && opcoesEnvelope.soapAction.trim())
+          ? opcoesEnvelope.soapAction.trim()
+          : (usaSoap12 ? action : `"${action}"`);
+
+        return {
+          ambiente,
+          action,
+          soapAction,
+          contentType,
+          formatoSoap,
+          versaoDados: String(opcoesEnvelope?.versaoDados || '2.00'),
+          usarNamespaceCabecalhoWsdl: Boolean(opcoesEnvelope?.usarNamespaceCabecalhoWsdl),
+          loteNamespaceV2: String(opcoesEnvelope?.loteNamespaceV2 || 'http://www.gnre.pe.gov.br'),
+          endpoint: config.sefazUrl[ambiente]
+        };
+      };
+
+      let variantesSelecionadas = variantesEnvio;
+      if (modoDiagnostico) {
+        if (variante) {
+          const varianteNormalizada = normalizarNomeVariante(variante);
+          variantesSelecionadas = variantesEnvio.filter((item) => item.nome === varianteNormalizada);
+          if (variantesSelecionadas.length === 0) {
+            return res.status(400).json({
+              success: false,
+              etapa: 'diagnostico_parametro_invalido',
+              message: 'Variante informada nao existe para o envio GNRE.',
+              diagnostico: {
+                varianteSolicitada: variante,
+                varianteNormalizada,
+                variantesDisponiveis: variantesEnvio.map((item) => item.nome)
+              }
+            });
+          }
+        } else {
+          variantesSelecionadas = [variantesEnvio[0]];
+        }
+      }
+
+      for (let i = 0; i < variantesSelecionadas.length; i += 1) {
+        const itemVariante = variantesSelecionadas[i];
+        const xmlEnvelope = await this.gerarEnvelopeSOAP(dadosGnre, ambiente, itemVariante.opcoesEnvelope);
+        varianteUsada = itemVariante.nome;
+        const diagnosticoEnvio = buildDiagnosticoEnvio(itemVariante.opcoesEnvelope);
+        const versoesXml = extrairVersoesEnvelope(xmlEnvelope);
+
+        console.log(`==== XML ENVIADO PARA SEFAZ (${itemVariante.nome}) ====`);
         console.log(xmlEnvelope);
+        console.log(`==== DIAGNOSTICO ENVIO (${itemVariante.nome}) ====`, diagnosticoEnvio);
+        console.log(`==== DIAGNOSTICO VERSOES XML (${itemVariante.nome}) ====`, versoesXml);
 
         try {
           sefazResponse = await this.enviarParaSefaz(
             xmlEnvelope,
             ambiente,
             certOptions,
-            variante.opcoesEnvelope
+            itemVariante.opcoesEnvelope
           );
-          console.log(`==== RESPOSTA SEFAZ (${variante.nome}) status/headers ====`, sefazResponse?.statusCode, sefazResponse?.headers);
-          console.log(`==== RESPOSTA SEFAZ (${variante.nome}) body ====`, sefazResponse?.body);
+          console.log(`==== RESPOSTA SEFAZ (${itemVariante.nome}) status/headers ====`, sefazResponse?.statusCode, sefazResponse?.headers);
+          console.log(`==== RESPOSTA SEFAZ (${itemVariante.nome}) body ====`, sefazResponse?.body);
         } catch (e) {
           return res.status(500).json({ error: 'Erro ao consultar SEFAZ: ' + (e.message || e) });
         }
@@ -714,6 +929,17 @@ class GnreProcessoController {
         situacaoRecepcao = extrairSituacaoRecepcao(sefazResponse?.body || '');
         numeroRecibo = extrairNumeroRecibo(sefazResponse?.body || '');
 
+        tentativasDiagnostico.push({
+          variante: itemVariante.nome,
+          statusCode: sefazResponse?.statusCode || null,
+          codigoRecepcao: situacaoRecepcao?.codigo || null,
+          descricaoRecepcao: situacaoRecepcao?.descricao || null,
+          faultCode: erroSefaz?.faultCode || null,
+          faultReason: erroSefaz?.faultReason || null,
+          envio: diagnosticoEnvio,
+          versoesXml
+        });
+
         const houveErroTecnico = Number(sefazResponse?.statusCode || 0) >= 400 || Boolean(erroSefaz);
         const codigoRecepcao = String(situacaoRecepcao?.codigo || '');
         const exigeFallbackFuncional = ['104', '303'].includes(codigoRecepcao);
@@ -722,12 +948,16 @@ class GnreProcessoController {
           break;
         }
 
-        if (i < variantesEnvio.length - 1) {
+        if (modoDiagnostico) {
+          break;
+        }
+
+        if (i < variantesSelecionadas.length - 1) {
           const motivoFallback = houveErroTecnico
             ? `HTTP/SOAP fault (${sefazResponse?.statusCode || 'sem_status'})`
             : `codigo ${codigoRecepcao}`;
 
-          console.warn(`==== FALLBACK ${motivoFallback}: tentando próxima variante (${variantesEnvio[i + 1].nome}) ====`);
+          console.warn(`==== FALLBACK ${motivoFallback}: tentando próxima variante (${variantesSelecionadas[i + 1].nome}) ====`);
           continue;
         }
 
@@ -752,6 +982,13 @@ class GnreProcessoController {
             faultCode: erroSefaz?.faultCode || null,
             faultReason: erroSefaz?.faultReason || null,
             detalhes: erroSefaz?.detalhes || null
+          },
+          diagnostico: {
+            modoDiagnostico,
+            varianteSolicitada: variante || null,
+            varianteUsada,
+            envio: sefazResponse?.request || null,
+            tentativas: tentativasDiagnostico
           }
         });
       }
@@ -770,6 +1007,13 @@ class GnreProcessoController {
             statusCode: sefazResponse?.statusCode || null,
             codigo: situacaoRecepcao?.codigo || null,
             descricao: situacaoRecepcao?.descricao || null
+          },
+          diagnostico: {
+            modoDiagnostico,
+            varianteSolicitada: variante || null,
+            varianteUsada,
+            envio: sefazResponse?.request || null,
+            tentativas: tentativasDiagnostico
           }
         });
       }
@@ -884,6 +1128,73 @@ class GnreProcessoController {
     }
   }
 
+  // Adicione esta função ao controller
+  gerarXmlDadosGnreV2(dados, loteNamespaceV2 = 'http://www.gnre.pe.gov.br') {
+  const uf         = String(dados.ufFavorecida || '').trim().toUpperCase();
+  const receita    = String(dados.receita || '').replace(/\D/g,'').padStart(6,'0').slice(0,6);
+  const docEmit    = String(dados.documentoEmitente   || '').replace(/\D/g,'');
+  const docDest    = String(dados.documentoDestinatario || '').replace(/\D/g,'');
+  const docOrigem  = String(dados.documentoOrigem || '').replace(/\D/g,'').slice(0,60) || '0';
+
+  const identEmit  = dados.tipoDocEmitente === '2'
+    ? `<CPF>${docEmit}</CPF>` : `<CNPJ>${docEmit}</CNPJ>`;
+  const identDest  = dados.tipoDocDestinatario === '2'
+    ? `<CPF>${docDest}</CPF>` : `<CNPJ>${docDest}</CNPJ>`;
+
+  // Campos opcionais do emitente
+  const tagEndereco  = dados.enderecoEmitente
+    ? `\n        <endereco>${String(dados.enderecoEmitente).slice(0,60)}</endereco>` : '';
+  const tagMunEmit   = dados.municipioEmitente
+    ? `\n        <municipio>${dados.municipioEmitente}</municipio>` : '';
+  const tagUfEmit    = dados.ufEmitente
+    ? `\n        <uf>${String(dados.ufEmitente).toUpperCase().slice(0,2)}</uf>` : '';
+  const tagCepEmit   = dados.cepEmitente
+    ? `\n        <cep>${String(dados.cepEmitente).replace(/\D/g,'').slice(0,8)}</cep>` : '';
+  const tagMunDest   = dados.municipioDestinatario
+    ? `\n              <municipio>${dados.municipioDestinatario}</municipio>` : '';
+
+  const mes  = String(dados.referenciaMes  || '').padStart(2,'0').slice(0,2);
+  const ano  = String(dados.referenciaAno  || '').slice(0,4);
+  const per  = String(dados.referenciaPeriodo || '0');
+  const razEmit = String(dados.razaoSocialEmitente   || '').slice(0,60);
+  const razDest = String(dados.razaoSocialDestinatario || '').slice(0,60);
+
+  // ⚠️ namespace APENAS no TLote_GNRE, sem redeclarar nos filhos
+  return `<TLote_GNRE versao="2.00" xmlns="${loteNamespaceV2}">
+  <guias>
+    <TDadosGNRE versao="2.00">
+      <ufFavorecida>${uf}</ufFavorecida>
+      <tipoGnre>0</tipoGnre>
+      <contribuinteEmitente>
+        <identificacao>${identEmit}</identificacao>
+        <razaoSocial>${razEmit}</razaoSocial>${tagEndereco}${tagMunEmit}${tagUfEmit}${tagCepEmit}
+      </contribuinteEmitente>
+      <itensGNRE>
+        <item>
+          <receita>${receita}</receita>
+          <documentoOrigem tipo="10">${docOrigem}</documentoOrigem>
+          <referencia>
+            <periodo>${per}</periodo>
+            <mes>${mes}</mes>
+            <ano>${ano}</ano>
+          </referencia>
+          <dataVencimento>${dados.dataVencimento}</dataVencimento>
+          <valor tipo="11">${dados.valorPrincipal}</valor>
+          <valor tipo="21">${dados.valorTotal}</valor>
+          <contribuinteDestinatario>
+            <identificacao>${identDest}</identificacao>
+            <razaoSocial>${razDest}</razaoSocial>${tagMunDest}
+          </contribuinteDestinatario>
+        </item>
+      </itensGNRE>
+      <valorGNRE>${dados.valorTotal}</valorGNRE>
+      <dataPagamento>${String(dados.dataPagamento || dados.dataVencimento || '')}</dataPagamento>
+      <identificadorGuia>1</identificadorGuia>
+    </TDadosGNRE>
+  </guias>
+</TLote_GNRE>`;
+}
+
   async gerarGnreSimples(req, res) {
     return this.consultarGnre(req, res);
   }
@@ -891,7 +1202,7 @@ class GnreProcessoController {
   async enviarParaSefaz(xml, ambiente = 'homologacao', certOptions = null, opcoesEnvelope = {}) {
     const sefazUrl = config.sefazUrl[ambiente];
     console.log('URL SEFAZ:', sefazUrl);
-    const sefazAction = config.sefazAction[ambiente];
+    const sefazAction = String(opcoesEnvelope?.contentTypeAction || config.sefazAction[ambiente] || '');
     if (!sefazUrl) {
       throw new Error(`Ambiente inválido para URL SEFAZ: ${ambiente}`);
     }
@@ -911,7 +1222,12 @@ class GnreProcessoController {
       ? `application/soap+xml;charset=utf-8;action="${sefazAction}"`
       : 'text/xml; charset=utf-8';
 
-    const soapActionHeader = usaSoap12 ? sefazAction : `"${sefazAction}"`;
+    let soapActionHeader;
+    if (typeof opcoesEnvelope?.soapAction === 'string' && opcoesEnvelope.soapAction.trim()) {
+      soapActionHeader = opcoesEnvelope.soapAction.trim();
+    } else {
+      soapActionHeader = usaSoap12 ? sefazAction : `"${sefazAction}"`;
+    }
 
     // LOG: XML enviado
     console.log('==== [enviarParaSefaz] XML ENVIADO ====');
@@ -959,7 +1275,18 @@ class GnreProcessoController {
           resolve({
             statusCode: res.statusCode,
             headers: res.headers,
-            body: data
+            body: data,
+            request: {
+              ambiente,
+              endpoint: sefazUrl,
+              action: sefazAction,
+              soapAction: soapActionHeader,
+              contentType,
+              formatoSoap,
+              usarNamespaceCabecalhoWsdl: Boolean(opcoesEnvelope?.usarNamespaceCabecalhoWsdl),
+              loteNamespaceV2: String(opcoesEnvelope?.loteNamespaceV2 || 'http://www.gnre.pe.gov.br'),
+              namespaceServicoRecepcao: String(opcoesEnvelope?.namespaceServicoRecepcao || '') || null
+            }
           });
         });
       });
@@ -1082,7 +1409,7 @@ class GnreProcessoController {
     const usarNamespaceCabecalhoWsdl = Boolean(opcoes?.usarNamespaceCabecalhoWsdl);
     const versaoLayout = String(opcoes?.versaoLayout || '2.00');
     const formatoSoap = String(opcoes?.formatoSoap || 'axis-cdata');
-    const loteNamespaceV2 = String(opcoes?.loteNamespaceV2 || 'http://www.gnre.pe.gov.br/schema/TLote_GNRE_v2_00.xsd');
+    const loteNamespaceV2 = String(opcoes?.loteNamespaceV2 || 'http://www.gnre.pe.gov.br');
 
     const ufFavorecidaV2 = String(dados.ufFavorecida || '').trim().toUpperCase();
     const receita6 = String(dados.receita || '').replace(/\D/g, '').slice(0, 6).padStart(6, '0');
@@ -1093,6 +1420,7 @@ class GnreProcessoController {
     const nsRecepcao = ambiente === 'producao'
       ? 'http://www.gnre.pe.gov.br/webservice/GnreLoteRecepcao'
       : 'http://www.testegnre.pe.gov.br/webservice/GnreLoteRecepcao';
+    const namespaceServicoRecepcao = String(opcoes?.namespaceServicoRecepcao || nsRecepcao);
 
     const ufFavorecidaIbge = ufSiglaParaCodigoIbge(ufFavorecidaV2) || ufFavorecidaV2;
 
@@ -1177,35 +1505,37 @@ class GnreProcessoController {
       };
 
     if (formatoSoap === 'soap12-direct') {
-      const chaveCabecalho = usarNamespaceCabecalhoWsdl
-        ? 'wsdl:gnreCabecMsg'
-        : 'gnre:gnreCabecMsg';
+      const namespaceCabecalho = usarNamespaceCabecalhoWsdl
+        ? 'http://www.gnre.pe.gov.br/wsdl/processar'
+        : nsRecepcao;
 
       const xmlDireto = create({
         'soap12:Envelope': {
           '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
           '@xmlns:xsd': 'http://www.w3.org/2001/XMLSchema',
           '@xmlns:soap12': 'http://www.w3.org/2003/05/soap-envelope',
-          '@xmlns:wsdl': 'http://www.gnre.pe.gov.br/wsdl/processar',
-          '@xmlns:gnre': nsRecepcao,
           'soap12:Header': {
-            [chaveCabecalho]: {
-              'versaoDados': versaoDados
+            'gnreCabecMsg': {
+              '@xmlns': namespaceCabecalho,
+              'versaoDados': versaoDados,
             }
           },
           'soap12:Body': {
             'gnreDadosMsg': {
-              '@xmlns': nsRecepcao,
+              '@xmlns': namespaceServicoRecepcao,
               ...loteGnreObjeto
             }
           }
         }
       });
 
-      return xmlDireto.end({ prettyPrint: true });
+      return xmlDireto.end({ prettyPrint: false });
     }
 
-    const xmlInterno = create(loteGnreObjeto).end({ prettyPrint: false, headless: true });
+
+    const xmlInterno = versaoLayout === '1.00'
+  ? create(loteGnreObjeto).end({ prettyPrint: false, headless: true })
+  : this.gerarXmlDadosGnreV2(dados, loteNamespaceV2);
 
     const namespaceCabecalho = usarNamespaceCabecalhoWsdl
       ? 'http://www.gnre.pe.gov.br/wsdl/processar'
@@ -1213,6 +1543,20 @@ class GnreProcessoController {
 
     const cabecalhoAbertura = `<gnreCabecMsg xmlns="${namespaceCabecalho}">`;
     const cabecalhoFechamento = '</gnreCabecMsg>';
+
+    if (formatoSoap === 'soap12-direct-cdata') {
+      return `<?xml version="1.0" encoding="UTF-8"?>
+<soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
+  <soap12:Header>
+    ${cabecalhoAbertura}
+      <versaoDados>${versaoDados}</versaoDados>
+    ${cabecalhoFechamento}
+  </soap12:Header>
+  <soap12:Body>
+    <gnreDadosMsg xmlns="${namespaceServicoRecepcao}"><![CDATA[${xmlInterno}]]></gnreDadosMsg>
+  </soap12:Body>
+</soap12:Envelope>`;
+    }
 
     if (formatoSoap === 'soap12-axis-cdata') {
       return `<?xml version="1.0" encoding="UTF-8"?>
@@ -1244,6 +1588,8 @@ class GnreProcessoController {
   </soapenv:Body>
 </soapenv:Envelope>`;
   }
+
+  
 }
 
 export default new GnreProcessoController();
