@@ -1,33 +1,3 @@
-/**
- * GnreController.js
- * Geração e envio de GNRE para a SEFAZ via SOAP 1.2
- *
- * Payload esperado da sua API (/api/venda/venda-gnre.xsjs):
- * {
- *   chave: '53260536769602005700550000000147921506192504',
- *   nnf: 14792,
- *   docEntry: 15405083,
- *   indFinal: 1,
- *   emitente: {
- *     CNPJ: '36.769.602/0057-00',
- *     xNome: 'GTO COMERCIO ATACADISTA...',
- *     state: 'DF',
- *     xLgr: 'SN',
- *     xMun: 'BRASÍLIA',
- *     CEP: '71.720-510',
- *     fone: null
- *   },
- *   destinatario: {
- *     CNPJ: '05.761.069/0001-51',
- *     xMun: 'SAO LUIS',
- *     UF: 'MA',
- *     indIEDest: '9',
- *     xNome: 'SOCIEDADE MARANHENSE DE DIREITOS HUMANOS'
- *   },
- *   valorNota: '179.980000'
- * }
- */
-
 import axios from 'axios';
 import https from 'https';
 import fs from 'fs';
@@ -1202,5 +1172,4 @@ export default GnreController;
 
 // Exporta utilitários para testes unitários
 export { mapearVendaParaGuias, calcularDIFAL, montarGuiaXml, montarSoapEnvelope, parseResposta, CODIGOS_RECEITA, ALIQUOTAS_UF };
-
 

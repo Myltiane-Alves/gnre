@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<soapenv:Envelope xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <soapenv:Body>
+        <gnreRespostaMsg xmlns="http://www.gnre.pe.gov.br/webservice/GnreConfigUF">
+            <ns1:TConfigUf xmlns="http://www.gnre.pe.gov.br" xmlns:ns1="http://www.gnre.pe.gov.br">
+                <ns1:ambiente>2</ns1:ambiente>
+                <ns1:uf>MA</ns1:uf>
+                <ns1:situacaoConsulta>
+                    <ns1:codigo>999</ns1:codigo>
+                    <ns1:descricao>cvc-elt.1: Cannot find the declaration of element
+                        'TConsultaMunicipio'.</ns1:descricao>
+                </ns1:situacaoConsulta>
+            </ns1:TConfigUf>
+        </gnreRespostaMsg>
+    </soapenv:Body>
+</soapenv:Envelope>

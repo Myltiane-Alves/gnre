@@ -1,8 +1,94 @@
-// teste-gnre.mjs  — rode com: node teste-gnre.mjs
+// teste-gnre.mjs  — rode com: node testet.mjs
 import https from 'https';
 import fs from 'fs';
+import axios from 'axios';
+
 const pfx = fs.readFileSync('./GTO COMERCIO 2026-2027.pfx');
 const senha = '#GTO@2026#';
+const httpsAgent = new https.Agent({ pfx, passphrase: senha, rejectUnauthorized: false });
+
+const xmlConfigUF = `<?xml version="1.0" encoding="utf-8"?>
+<soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope" xmlns:gnr="http://www.gnre.pe.gov.br/webservice/GnreConfigUF">
+  <soap12:Header>
+    <gnr:gnreCabecMsg><gnr:versaoDados>2.00</gnr:versaoDados></gnr:gnreCabecMsg>
+  </soap12:Header>
+  <soap12:Body>
+    <gnr:gnreDadosMsg>
+      <TConsultaConfigUf xmlns="http://www.gnre.pe.gov.br">
+        <ambiente>2</ambiente>
+        <uf>MA</uf>
+        <receita>100102</receita>
+      </TConsultaConfigUf>
+    </gnr:gnreDadosMsg>
+  </soap12:Body>
+</soap12:Envelope>`;
+
+// Testa se o portal aceita código de município com 7 dígitos IBGE
+const xmlLote7dig = `<?xml version="1.0" encoding="utf-8"?>
+<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
+  <soap12:Header>
+    <gnreCabecMsg xmlns="http://www.gnre.pe.gov.br/webservice/GnreLoteRecepcao">
+      <versaoDados>2.00</versaoDados>
+    </gnreCabecMsg>
+  </soap12:Header>
+  <soap12:Body>
+    <gnreDadosMsg xmlns="http://www.gnre.pe.gov.br/webservice/GnreLoteRecepcao">
+      <TLote_GNRE versao="2.00" xmlns="http://www.gnre.pe.gov.br">
+        <guias>
+          <TDadosGNRE versao="2.00">
+            <ufFavorecida>MA</ufFavorecida>
+            <tipoGnre>0</tipoGnre>
+            <contribuinteEmitente>
+              <identificacao><CNPJ>36769602005700</CNPJ></identificacao>
+              <razaoSocial>GTO COMERCIO ATACADISTA DE CONFECCOES E CALCADOS LTDA</razaoSocial>
+              <endereco>SN</endereco>
+              <municipio>5300108</municipio>
+              <uf>DF</uf>
+              <cep>71720510</cep>
+            </contribuinteEmitente>
+            <itensGNRE>
+              <item>
+                <receita>100102</receita>
+                <documentoOrigem tipo="10">14792</documentoOrigem>
+                <referencia><periodo>0</periodo><mes>05</mes><ano>2026</ano></referencia>
+                <dataVencimento>2026-05-29</dataVencimento>
+                <valor tipo="11">179.98</valor>
+                <valor tipo="21">179.98</valor>
+                <produto>33</produto>
+                <convenio>0</convenio>
+                <contribuinteDestinatario>
+                  <identificacao><CNPJ>05761069000151</CNPJ></identificacao>
+                  <razaoSocial>SOCIEDADE MARANHENSE DE DIREITOS HUMANOS</razaoSocial>
+                  <municipio>2111300</municipio>
+                </contribuinteDestinatario>
+                <camposExtras>
+                  <campoExtra><codigo>113</codigo><valor>53260536769602005700550000000147921506192504</valor></campoExtra>
+                </camposExtras>
+              </item>
+            </itensGNRE>
+            <valorGNRE>179.98</valorGNRE>
+            <dataPagamento>2026-05-29</dataPagamento>
+            <identificadorGuia>1</identificadorGuia>
+          </TDadosGNRE>
+        </guias>
+      </TLote_GNRE>
+    </gnreDadosMsg>
+  </soap12:Body>
+</soap12:Envelope>`;
+
+try {
+  const resp = await axios.post(
+    'https://www.testegnre.pe.gov.br/gnreWS/services/GnreLoteRecepcao',
+    xmlLote7dig,
+    { httpsAgent, headers: { 'Content-Type': 'application/soap+xml;charset=utf-8;action="processar"' } }
+  );
+  console.log(resp.data);
+} catch (err) {
+  console.error('STATUS:', err?.response?.status);
+  console.error('DATA:', err?.response?.data);
+  console.error('MSG:', err.message);
+}
+
 const endpoint = 'https://www.testegnre.pe.gov.br/gnreWS/services/GnreLoteRecepcao';
 const action = 'http://www.testegnre.pe.gov.br/webservice/GnreRecepcaoLote';
 

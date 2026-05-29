@@ -1,0 +1,12 @@
+﻿import https from 'https';
+import fs from 'fs';
+import axios from 'axios';
+const pfx = fs.readFileSync('./GTO COMERCIO 2026-2027.pfx');
+const httpsAgent = new https.Agent({ pfx, passphrase: '#GTO@2026#', rejectUnauthorized: false });
+const xml = `<soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope" xmlns:gnr="http://www.gnre.pe.gov.br/webservice/GnreConfigUF"><soap12:Header><gnr:gnreCabecMsg><gnr:versaoDados>2.00</gnr:versaoDados></gnr:gnreCabecMsg></soap12:Header><soap12:Body><gnr:gnreDadosMsg><TConsultaMunicipio xmlns="http://www.gnre.pe.gov.br"><ambiente>2</ambiente><uf>MA</uf></TConsultaMunicipio></gnr:gnreDadosMsg></soap12:Body></soap12:Envelope>`;
+const r = await axios.post('https://www.testegnre.pe.gov.br/gnreWS/services/GnreConfigUF', xml, { httpsAgent, headers: { 'Content-Type': 'application/soap+xml;charset=utf-8;action="consultar"' } });
+fs.writeFileSync('./municipios-ma.xml', r.data);
+const matches = r.data.match(/SAO LU[A-Z ]{0,30}/gi);
+console.log('SAO LU matches:', matches);
+const idx = r.data.indexOf('SAO LU');
+if (idx>-1) console.log('Contexto:', r.data.substring(idx-150, idx+250));

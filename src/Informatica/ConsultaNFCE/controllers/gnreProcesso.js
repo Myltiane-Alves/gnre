@@ -5,6 +5,7 @@ import https from 'https';
 import 'dotenv/config';
 import { GeradorGNRE, PDFGNRE, ValidacaoGNRE } from './geradorGnre.js';
 import { create } from 'xmlbuilder2';
+import { calcularDIFAL, CODIGOS_RECEITA } from './index.js';
 
 const url = process.env.API_URL;
 const SENHA_CERT = process.env.SENHA || '#senhagto2024#';
@@ -477,8 +478,10 @@ class GnreProcessoController {
 
       let caminhoPdf = null;
       let arquivoPdf = null;
+      const pastaSaida = opcoes?.pastaSaida ?? './gnre';
+      const deveSalvarPdf = opcoes?.salvarPdf !== false;
 
-      if (opcoes?.salvarPdf) {
+      if (deveSalvarPdf) {
         const pdfBuffer = await PDFGNRE.gerarBuffer({
           nfe,
           calculo: resultado.calculo,
@@ -489,7 +492,7 @@ class GnreProcessoController {
         arquivoPdf = `GNRE_${nfe?.ide?.nNF || 'sem_numero'}.pdf`;
         caminhoPdf = PDFGNRE.salvar(
           pdfBuffer,
-          path.join(opcoes?.pastaSaida ?? './gnre', arquivoPdf)
+          path.join(pastaSaida, arquivoPdf)
         );
       }
 
@@ -540,7 +543,7 @@ class GnreProcessoController {
         controleOficial: opcoes?.controleOficial || null
       });
 
-      if (opcoes?.salvarPdf) {
+      if (opcoes?.salvarPdf !== false) {
         const nomeArquivoPdf = `GNRE_${nfe?.ide?.nNF || 'sem_numero'}.pdf`;
         PDFGNRE.salvar(pdfBuffer, path.join(opcoes?.pastaSaida ?? './gnre', nomeArquivoPdf));
       }
@@ -585,9 +588,34 @@ class GnreProcessoController {
       }
       const venda = vendaData.data[0]?.venda;
       const ufFavorecida = venda?.destinatario?.UF;
-      const receita = '100102';
-      const valorPrincipal = formatarValorMonetario(venda?.valorNota);
-      const valorTotal = formatarValorMonetario(venda?.valorNota);
+
+      // ── Cálculo DIFAL ────────────────────────────────────────────────────────
+      const ufOrigem = (venda?.emitente?.state || venda?.emitente?.UF || '').toUpperCase();
+      const ufDestinoCalc = (ufFavorecida || '').toUpperCase();
+      const isConsumidorFinal =
+        venda?.indFinal === 1 || String(venda?.indFinal) === '1' ||
+        String(venda?.destinatario?.indIEDest) === '9';
+
+      let valorBaseGnre = parseFloat(venda?.valorNota || 0);
+      let receita = CODIGOS_RECEITA.DIFAL;
+
+      if (isConsumidorFinal && ufOrigem && ufDestinoCalc && ufOrigem !== ufDestinoCalc) {
+        const { difal, fcp, aliqInterestadual, aliqInterna, aliqFCP } =
+          calcularDIFAL(valorBaseGnre, ufOrigem, ufDestinoCalc);
+        console.log(
+          `[GNRE] DIFAL: base=R$${valorBaseGnre.toFixed(2)} | ` +
+          `aliqInterest=${(aliqInterestadual * 100).toFixed(1)}% | ` +
+          `aliqInterna=${(aliqInterna * 100).toFixed(1)}% | ` +
+          `difal=R$${difal.toFixed(2)} | fcp=${(aliqFCP * 100).toFixed(1)}% R$${fcp.toFixed(2)} | ` +
+          `${ufOrigem}→${ufDestinoCalc}`
+        );
+        valorBaseGnre = difal;
+        receita = CODIGOS_RECEITA.DIFAL;
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
+      const valorPrincipal = formatarValorMonetario(valorBaseGnre);
+      const valorTotal = formatarValorMonetario(valorBaseGnre);
       const dataVencimento = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // Vencimento 24 horas após a data atual
       const razaoSocialEmitente = venda?.emitente?.xNome;
       const razaoSocialDestinatario = venda?.destinatario?.xNome || ' ';
@@ -626,7 +654,7 @@ class GnreProcessoController {
         },
         total: {
           ICMSTot: {
-            vNF: valorTotal
+            vNF: formatarValorMonetario(venda?.valorNota)  // valor original da NF-e (não DIFAL)
           }
         }
       };

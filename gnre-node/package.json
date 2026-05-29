@@ -1,0 +1,9 @@
+{
+  "name": "gnre-node",
+  "version": "1.0.0",
+  "description": "Biblioteca Node.js para geração e envio de GNRE à SEFAZ — equivalente ao sped-gnre PHP",
+  "type": "module",
+  "main": "index.mjs",
+  "author": "Myltiane Alves",
+  "license": "MIT"
+}
