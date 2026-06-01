@@ -739,7 +739,48 @@ async function consultarLoteSefaz(numeroControle, ambiente = 'homologacao') {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class GnreController {
+    async gerarConsultaConfigUf({
+        uf,
+        receita,
+        ambiente = 2,
+        homologacao = true
+        }) {
 
+        const url = homologacao
+            ? 'https://www.testegnre.pe.gov.br/gnreWS/services/GnreConfigUF'
+            : 'https://www.gnre.pe.gov.br/gnreWS/services/GnreConfigUF';
+
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+        <soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope"
+                        xmlns:gnr="http://www.gnre.pe.gov.br/webservice/GnreConfigUF">
+        <soap12:Header>
+            <gnr:gnreCabecMsg>
+                <gnr:versaoDados>1.00</gnr:versaoDados>
+            </gnr:gnreCabecMsg>
+        </soap12:Header>
+
+        <soap12:Body>
+            <gnr:gnreDadosMsg>
+                <![CDATA[
+                <TConsultaConfigUf xmlns="http://www.gnre.pe.gov.br">
+                    <ambiente>${ambiente}</ambiente>
+                    <uf>${uf}</uf>
+                    <receita>${receita}</receita>
+                </TConsultaConfigUf>
+                ]]>
+            </gnr:gnreDadosMsg>
+        </soap12:Body>
+        </soap12:Envelope>`;
+
+        return {
+            url,
+            headers: {
+            'Content-Type': 'application/soap+xml;charset=utf-8',
+            'SOAPAction': 'consultar'
+            },
+            xml
+    };
+    }
 
   async gerarGnre(req, res) {
     try {

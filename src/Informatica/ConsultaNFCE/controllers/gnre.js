@@ -159,6 +159,96 @@ export default class GNRE {
         }
     }
 
+    async gerarConsultaConfigUf({
+        uf,
+        receita,
+        ambiente = 2,
+        homologacao = true
+    }) {
+
+        const url = homologacao
+            ? 'https://www.testegnre.pe.gov.br/gnreWS/services/GnreConsultaConfigUf'
+            : 'https://www.gnre.pe.gov.br/gnreWS/services/GnreConsultaConfigUf';
+
+        const xml = `<?xml version="1.0" encoding="utf-8"?>
+            <soapenv:Envelope
+                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+
+                <soapenv:Header>
+                    <gnreCabecMsg xmlns="http://www.gnre.pe.gov.br/webservice/GnreConsultaConfigUf">
+                        <versaoDados>2.00</versaoDados>
+                    </gnreCabecMsg>
+                </soapenv:Header>
+
+                <soapenv:Body>
+                    <gnreDadosMsg xmlns="http://www.gnre.pe.gov.br/webservice/GnreConsultaConfigUf">
+                        <TConsultaConfigUf xmlns="http://www.gnre.pe.gov.br">
+                            <ambiente>${ambiente}</ambiente>
+                            <uf>${uf}</uf>
+                            <receita>${receita}</receita>
+                        </TConsultaConfigUf>
+                    </gnreDadosMsg>
+                </soapenv:Body>
+
+            </soapenv:Envelope>`;
+
+        try {
+
+            console.log('==== URL ====');
+            console.log(url);
+
+            console.log('==== XML ENVIADO ====');
+            console.log(xml);
+
+            const response = await axios.post(
+                url,
+                xml,
+                {
+                    headers: {
+                        'Content-Type': 'text/xml; charset=utf-8',
+                        'SOAPAction': 'consultar'
+                    },
+                    httpsAgent: this.httpsAgent,
+                    timeout: 30000
+                }
+            );
+
+            console.log('==== XML RETORNO ====');
+            console.log(response.data);
+
+            const json = await xml2js.parseStringPromise(
+                response.data,
+                {
+                    explicitArray: false,
+                    ignoreAttrs: false
+                }
+            );
+
+            return {
+                success: true,
+                xmlEnviado: xml,
+                xmlRetorno: response.data,
+                json
+            };
+
+        } catch (error) {
+
+            const xmlErro = error?.response?.data || error.message;
+
+            console.log('==== ERRO GNRE ====');
+            console.log(xmlErro);
+
+            return {
+                success: false,
+                statusCode: error?.response?.status || null,
+                xmlEnviado: xml,
+                erro: xmlErro
+            };
+        }
+    }
+
     async buscarCodigoMunicipioGNRE(codigoIBGE, uf, ufFavorecida = null) {
         try {
             const ibgeNormalizado = String(codigoIBGE).replace(/\D/g, '');

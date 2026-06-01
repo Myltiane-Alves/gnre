@@ -47,19 +47,24 @@ export class LoteV2 extends Lote {
 
   /** Gera o envelope SOAP 1.2 completo com o lote v2 dentro */
   toXml() {
-    const nsAction = this.#ambienteDeTeste
-      ? 'http://www.testegnre.pe.gov.br/webservice/GnreLoteRecepcao'
-      : 'http://www.gnre.pe.gov.br/webservice/GnreLoteRecepcao';
+    // const nsAction = this.#ambienteDeTeste
+    //   ? 'http://www.testegnre.pe.gov.br/webservice/GnreLoteRecepcao'
+    //   : 'http://www.gnre.pe.gov.br/webservice/GnreLoteRecepcao';
+
+    const nsAction =
+  'http://www.gnre.pe.gov.br/webservice/GnreLoteRecepcao';
 
     const loteXml = this.gerarXmlLote();
 
     return `<?xml version="1.0" encoding="UTF-8"?>\
-<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">\
+<soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope" xmlns:gnre="${nsAction}" xmlns:wsdl="http://www.gnre.pe.gov.br/wsdl/processar">\
 <soap12:Header>\
 <gnreCabecMsg xmlns="http://www.gnre.pe.gov.br/wsdl/processar"><versaoDados>2.00</versaoDados></gnreCabecMsg>\
 </soap12:Header>\
 <soap12:Body>\
-<gnreDadosMsg xmlns="${nsAction}">${loteXml}</gnreDadosMsg>\
+<gnre:processar>\
+<gnre:gnreDadosMsg><![CDATA[${loteXml}]]></gnre:gnreDadosMsg>\
+</gnre:processar>\
 </soap12:Body>\
 </soap12:Envelope>`;
   }

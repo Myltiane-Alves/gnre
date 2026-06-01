@@ -7,6 +7,7 @@ import GnreController from './Informatica/ConsultaNFCE/controllers/index.js'
 import GnrePhpMirrorController from './Informatica/ConsultaNFCE/controllers/gnrePhpMirrorController.js'
 // import Teste from './Informatica/ConsultaNFCE/controllers/testet.js'
 import GNRE from './Informatica/ConsultaNFCE/controllers/gnre.js'
+import vendasRoutes from '../gnre-node/routes.mjs'
 // const teste = new Teste();
 
 const gnre = new GnreController();
@@ -157,6 +158,28 @@ routes.post('/gnre',
     }
 );
 
+
+routes.post('/consulta-config-uf', async (req, res) => {
+  try {
+
+    const gnre = new GNRE();
+
+    const retorno = await gnre.gerarConsultaConfigUf(req.body);
+
+    res.type('application/xml');
+    res.send(retorno);
+
+  } catch (error) {
+
+    res.status(500).json({
+      success: false,
+      erro: error.response?.data || error.message
+    });
+
+  }
+});
+
+
 // routes.get('/validarConsulta', GNRE.consultarLote);
 routes.put('/valida-venda-contingencia/:id', ConsultaNfeController.putValidarVendaContigencia);
 routes.post('/gnre/processar', GnreProcessoController.processar);
@@ -177,6 +200,8 @@ routes.get('/gnre/gerar-fixa',  (req, res) => gnre.gerarGnreFixa(req, res));
 routes.post('/gnre/php-mirror/preview', GnrePhpMirrorController.preview);
 routes.post('/gnre/php-mirror/enviar', GnrePhpMirrorController.enviarLote);
 routes.post('/gnre/php-mirror/consultar', GnrePhpMirrorController.consultarLote);
+
+routes.use(vendasRoutes);
 
 export default routes;
 

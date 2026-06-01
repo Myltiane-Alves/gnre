@@ -64,12 +64,14 @@ export class Lote extends LoteGnre {
     const loteXml = this.gerarXmlLote();
 
     return `<?xml version="1.0" encoding="UTF-8"?>\
-<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">\
+<soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope" xmlns:gnre="${nsAction}" xmlns:wsdl="http://www.gnre.pe.gov.br/wsdl/processar">\
 <soap12:Header>\
 <gnreCabecMsg xmlns="http://www.gnre.pe.gov.br/wsdl/processar"><versaoDados>1.00</versaoDados></gnreCabecMsg>\
 </soap12:Header>\
 <soap12:Body>\
-<gnreDadosMsg xmlns="${nsAction}">${loteXml}</gnreDadosMsg>\
+<gnre:processar>\
+<gnre:gnreDadosMsg><![CDATA[${loteXml}]]></gnre:gnreDadosMsg>\
+</gnre:processar>\
 </soap12:Body>\
 </soap12:Envelope>`;
   }
@@ -101,7 +103,7 @@ export class Lote extends LoteGnre {
       xml += `<c26_produto>${escapeXml(g.c26_produto)}</c26_produto>`;
 
     xml += `<c27_tipoIdentificacaoEmitente>${tipEmit}</c27_tipoIdentificacaoEmitente>`;
-    xml += `<c03_idContribuinteEmitente>${docEmitente}</c03_idContribuinteEmitente>`;
+    xml += `<c03_idContribuinteEmitente>${escapeXml(g.c03_idContribuinteEmitente)}</c03_idContribuinteEmitente>`;
     xml += `<c28_tipoDocOrigem>${escapeXml(g.c28_tipoDocOrigem)}</c28_tipoDocOrigem>`;
     xml += `<c04_docOrigem>${escapeXml(g.c04_docOrigem)}</c04_docOrigem>`;
 
@@ -136,7 +138,7 @@ export class Lote extends LoteGnre {
     }
 
     if (g.c35_idContribuinteDestinatario) {
-      xml += `<c35_idContribuinteDestinatario>${docDest}</c35_idContribuinteDestinatario>`;
+      xml += `<c35_idContribuinteDestinatario>${escapeXml(g.c35_idContribuinteDestinatario)}</c35_idContribuinteDestinatario>`;
     }
 
     if (g.c36_inscricaoEstadualDestinatario)

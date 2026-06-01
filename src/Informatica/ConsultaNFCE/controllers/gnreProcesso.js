@@ -564,29 +564,29 @@ class GnreProcessoController {
     try {
       const { idVenda, ambiente, variante, modoDiagnostico } = this.extrairEntradaConsulta(req);
 
-      if (!idVenda) {
-        return res.status(400).json({ error: 'idVenda é obrigatório para gerar GNRE.' });
+      let venda;
+
+      if (req.body?.chave && req.body?.emitente) {
+        venda = req.body;
+      } else {
+        if (!idVenda) {
+          return res.status(400).json({ error: 'idVenda é obrigatório para gerar GNRE.' });
+        }
+
+        if (!url) {
+          return res.status(500).json({ error: 'API_URL não configurada no ambiente.' });
+        }
+
+        const apiUrl = `${url}/api/venda/venda-gnre.xsjs?docEntry=${idVenda}`;
+
+        const response = await axios.get(apiUrl);
+        const vendaData = response.data;
+
+        if (!vendaData || !vendaData.data || vendaData.data.length === 0) {
+          return res.status(404).json({ error: 'Venda não encontrada.' });
+        }
+        venda = vendaData.data[0]?.venda;
       }
-
-      if (!url) {
-        return res.status(500).json({ error: 'API_URL não configurada no ambiente.' });
-      }
-
-      // if (!chave) {
-      //   return res.status(400).json({ error: 'chave é obrigatória' });
-      // }
-
-      // Buscar dados da venda na API
-      const apiUrl = `${url}/api/venda/venda-gnre.xsjs?docEntry=${idVenda}`;
-      // const apiUrl = `${url}/api/venda/lista-venda-new-xml.xsjs?id=${idVenda}`;
-
-      const response = await axios.get(apiUrl);
-      const vendaData = response.data;
-
-      if (!vendaData || !vendaData.data || vendaData.data.length === 0) {
-        return res.status(404).json({ error: 'Venda não encontrada.' });
-      }
-      const venda = vendaData.data[0]?.venda;
       const ufFavorecida = venda?.destinatario?.UF;
 
       // ── Cálculo DIFAL ────────────────────────────────────────────────────────
@@ -597,7 +597,7 @@ class GnreProcessoController {
         String(venda?.destinatario?.indIEDest) === '9';
 
       let valorBaseGnre = parseFloat(venda?.valorNota || 0);
-      let receita = CODIGOS_RECEITA.DIFAL;
+      let receita = venda?.receita || CODIGOS_RECEITA.DIFAL;
 
       if (isConsumidorFinal && ufOrigem && ufDestinoCalc && ufOrigem !== ufDestinoCalc) {
         const { difal, fcp, aliqInterestadual, aliqInterna, aliqFCP } =
@@ -616,9 +616,9 @@ class GnreProcessoController {
 
       const valorPrincipal = formatarValorMonetario(valorBaseGnre);
       const valorTotal = formatarValorMonetario(valorBaseGnre);
-      const dataVencimento = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // Vencimento 24 horas após a data atual
+      const dataVencimento = venda?.dataVencimento || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const razaoSocialEmitente = venda?.emitente?.xNome;
-      const razaoSocialDestinatario = venda?.destinatario?.xNome || ' ';
+      const razaoSocialDestinatario = venda?.destinatario?.xNomeDestinatario || venda?.destinatario?.xNome || ' ';
 
       const nfeNormalizada = {
         chave: venda?.chave,
@@ -642,7 +642,7 @@ class GnreProcessoController {
           CNPJ: somenteDigitos(venda?.destinatario?.CNPJ),
           CPF: somenteDigitos(venda?.destinatario?.CPF),
           UF: venda?.destinatario?.UF || venda?.destinatario?.state || '',
-          xNome: venda?.destinatario?.xNome || '',
+          xNome: venda?.destinatario?.xNomeDestinatario || venda?.destinatario?.xNome || '',
           enderDest: {
             xLgr: venda?.destinatario?.xLgr || '',
             xMun: venda?.destinatario?.xMun || '',
@@ -690,17 +690,17 @@ class GnreProcessoController {
         valorPrincipal,
         valorTotal,
         dataVencimento,
-        dataPagamento: new Date().toISOString().split('T')[0],
+        dataPagamento: venda?.dataPagamento || new Date().toISOString().split('T')[0],
         referenciaPeriodo: '0',
         referenciaMes: String(new Date().getMonth() + 1).padStart(2, '0'),
         referenciaAno: String(new Date().getFullYear()),
         razaoSocialEmitente,
         razaoSocialDestinatario,
         enderecoEmitente: nfeNormalizada?.emit?.enderEmit?.xLgr || '',
-        municipioEmitente: normalizarCodigoMunicipioV2(nfeNormalizada?.emit?.enderEmit?.xMun || ''),
+        municipioEmitente: normalizarCodigoMunicipioV2(nfeNormalizada?.emit?.enderEmit?.xMun || venda?.emitente?.municipioEmitente || ''),
         ufEmitente: nfeNormalizada?.emit?.UF || '',
         cepEmitente: somenteDigitos(nfeNormalizada?.emit?.enderEmit?.CEP || ''),
-        municipioDestinatario: normalizarCodigoMunicipioV2(nfeNormalizada?.dest?.enderDest?.xMun || ''),
+        municipioDestinatario: normalizarCodigoMunicipioV2(nfeNormalizada?.dest?.enderDest?.xMun || venda?.destinatario?.municipioDestinatario || ''),
         documentoEmitente: nfeNormalizada?.emit?.CNPJ || nfeNormalizada?.emit?.CPF || '',
         tipoDocEmitente: nfeNormalizada?.emit?.CNPJ ? '1' : '2',
         documentoDestinatario: nfeNormalizada?.dest?.CNPJ || nfeNormalizada?.dest?.CPF || '',
